@@ -1,0 +1,18 @@
+[package]
+name = "retry-policies"
+version = "0.1.0"
+authors = ["Luca Palmieri <lpalmieri@truelayer.com>"]
+edition = "2018"
+description = "A collection of plug-and-play retry policies for Rust projects."
+repository = "https://github.com/TrueLayer/retry-policies"
+license = "MIT OR Apache-2.0"
+keywords = ["retry", "policy", "backoff"]
+categories = ["network-programming"]
+
+[dependencies]
+chrono = "0.4.19"
+rand = "0.8.4"
+anyhow = "1.0.42"
+
+[dev-dependencies]
+fake = "2.4.1"
