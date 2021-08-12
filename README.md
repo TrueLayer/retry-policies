@@ -5,7 +5,7 @@ A collection of plug-and-play retry policies for Rust projects.
 [![Crates.io](https://img.shields.io/crates/v/retry-policies.svg)](https://crates.io/crates/retry-policies)
 [![Docs.rs](https://docs.rs/retry-policies/badge.svg)](https://docs.rs/retry-policies)
 [![CI](https://github.com/TrueLayer/rust-retry-policies/workflows/CI/badge.svg)](https://github.com/TrueLayer/rust-retry-policies/actions)
-[![Coverage Status](https://coveralls.io/repos/github/TrueLayer/rust-retry-policies/badge.svg?branch=main&t=UWgSpm)](https://coveralls.io/github/TrueLayer/rust-retry-policies?branch=main)
+[![Coverage Status](https://coveralls.io/repos/github/TrueLayer/rust-retry-policies/badge.svg?branch=main&t=d56f4Y)](https://coveralls.io/github/TrueLayer/rust-retry-policies?branch=main)
 
 Currently available algorithms:
 
