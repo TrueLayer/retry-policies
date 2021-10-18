@@ -30,7 +30,7 @@ impl ExponentialBackoff {
     ///
     /// # Example
     /// ```
-    /// use retry::policies::ExponentialBackoff;
+    /// use retry_policies::policies::ExponentialBackoff;
     /// use std::time::Duration;
     ///
     /// let backoff = ExponentialBackoff::builder()
@@ -139,7 +139,7 @@ impl ExponentialBackoffBuilder {
     ///
     /// # Example
     /// ```
-    /// use retry::policies::ExponentialBackoff;
+    /// use retry_policies::policies::ExponentialBackoff;
     /// use std::time::Duration;
     ///
     /// let backoff = ExponentialBackoff::builder()
