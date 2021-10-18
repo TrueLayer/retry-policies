@@ -10,7 +10,7 @@ keywords = ["retry", "policy", "backoff"]
 categories = ["network-programming"]
 
 [dependencies]
-chrono = "0.4.19"
+chrono = { version = "0.4.19", features = ["clock"], default-features = false }
 rand = "0.8.4"
 anyhow = "1.0.42"
 
