@@ -6,6 +6,7 @@ pub trait RetryPolicy {
 }
 
 /// Outcome of evaluating a retry policy for a failed task.
+#[derive(Debug)]
 pub enum RetryDecision {
     /// Retry after the specified timestamp.
     Retry { execute_after: DateTime<Utc> },
