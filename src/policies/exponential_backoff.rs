@@ -7,7 +7,7 @@ const MIN_JITTER: f64 = 0.0;
 const MAX_JITTER: f64 = 3.0;
 
 /// We are using the "decorrelated jitter" approach detailed here:
-/// `<https://aws.amazon.com/blogs/architecture/exponential-backoff-and-jitter/>`
+/// <https://aws.amazon.com/blogs/architecture/exponential-backoff-and-jitter/>
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ExponentialBackoff {
     /// Maximum number of allowed retries attempts.
