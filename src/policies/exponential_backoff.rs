@@ -1,9 +1,9 @@
 use crate::{Jitter, RetryDecision, RetryPolicy};
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use rand::distributions::uniform::{UniformFloat, UniformSampler};
 use std::{
     cmp::{self, min},
-    time::{Duration, Instant},
+    time::Duration,
 };
 
 /// Exponential backoff with optional jitter.
@@ -32,7 +32,7 @@ pub struct ExponentialBackoffTimed {
 /// Exponential backoff with a maximum retry duration, for a task with a known start time.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ExponentialBackoffWithStart {
-    started_at: Instant,
+    started_at: DateTime<Utc>,
 
     inner: ExponentialBackoffTimed,
 }
@@ -44,13 +44,12 @@ pub struct ExponentialBackoffWithStart {
 /// ```rust
 /// use retry_policies::{RetryDecision, RetryPolicy, Jitter};
 /// use retry_policies::policies::ExponentialBackoff;
-/// use std::time::{Duration, Instant};
+/// use std::time::Duration;
 ///
 /// let backoff = ExponentialBackoff::builder()
 ///     .retry_bounds(Duration::from_secs(1), Duration::from_secs(60))
 ///     .jitter(Jitter::Bounded)
 ///     .build_with_total_retry_duration(Duration::from_secs(24 * 60 * 60));
-///
 /// ```
 pub struct ExponentialBackoffBuilder {
     min_retry_interval: Duration,
@@ -119,8 +118,16 @@ impl RetryPolicy for ExponentialBackoff {
     }
 }
 
+/// Clip to the maximum allowed retry interval and convert to [`chrono::Duration`].
+fn clip_and_convert(duration: Duration, max_duration: Duration) -> chrono::Duration {
+    // Unwrapping is fine given that we are guaranteed to never exceed the maximum retry interval
+    // in magnitude and that is well within range for chrono::Duration
+    chrono::Duration::from_std(cmp::min(duration, max_duration)).unwrap()
+}
+
 impl ExponentialBackoffTimed {
-    pub fn for_task_started_at(&self, started_at: Instant) -> ExponentialBackoffWithStart {
+    /// Create a [`RetryPolicy`] for a task started at the given
+    pub fn for_task_started_at(&self, started_at: DateTime<Utc>) -> ExponentialBackoffWithStart {
         ExponentialBackoffWithStart {
             inner: *self,
             started_at,
@@ -132,7 +139,15 @@ impl ExponentialBackoffWithStart {
     fn trying_for_too_long(&self) -> bool {
         self.inner
             .max_total_retry_duration
-            .is_some_and(|max_d| max_d <= self.started_at.elapsed())
+            .is_some_and(|max_d| max_d <= Self::elapsed(self.started_at))
+    }
+
+    fn elapsed(started_at: DateTime<Utc>) -> Duration {
+        Utc::now()
+            .signed_duration_since(started_at)
+            .to_std()
+            // If `started_at` is in the future then return a zero duration.
+            .unwrap_or_default()
     }
 }
 
@@ -144,13 +159,6 @@ impl RetryPolicy for ExponentialBackoffWithStart {
             self.inner.backoff.should_retry(n_past_retries)
         }
     }
-}
-
-/// Clip to the maximum allowed retry interval and convert to chrono::Duration
-fn clip_and_convert(duration: Duration, max_duration: Duration) -> chrono::Duration {
-    // Unwrapping is fine given that we are guaranteed to never exceed the maximum retry interval
-    // in magnitude and that is well within range for chrono::Duration
-    chrono::Duration::from_std(cmp::min(duration, max_duration)).unwrap()
 }
 
 impl Default for ExponentialBackoffBuilder {
@@ -209,15 +217,17 @@ impl ExponentialBackoffBuilder {
     /// # Example
     ///
     /// ```rust
+    /// use chrono::{DateTime, Utc};
     /// use retry_policies::{RetryDecision, RetryPolicy};
     /// use retry_policies::policies::ExponentialBackoff;
-    /// use std::time::{Duration, Instant};
+    /// use std::time::Duration;
     ///
     /// let backoff = ExponentialBackoff::builder()
     ///     .build_with_total_retry_duration(Duration::from_secs(24 * 60 * 60));
     ///
-    /// let started_at = Instant::now()
-    ///     .checked_sub(Duration::from_secs(25 * 60 * 60)).unwrap();
+    /// let started_at = Utc::now()
+    ///     .checked_sub_signed(chrono::Duration::seconds(25 * 60 * 60))
+    ///     .unwrap();
     ///
     /// backoff.for_task_started_at(started_at)
     ///     .should_retry(0); // RetryDecision::DoNotRetry
@@ -332,8 +342,8 @@ mod tests {
             .build_with_total_retry_duration(Duration::from_secs(24 * 60 * 60));
 
         {
-            let started_at = Instant::now()
-                .checked_sub(Duration::from_secs(23 * 60 * 60))
+            let started_at = Utc::now()
+                .checked_sub_signed(chrono::Duration::seconds(23 * 60 * 60))
                 .unwrap();
 
             let decision = backoff.for_task_started_at(started_at).should_retry(0);
@@ -344,8 +354,8 @@ mod tests {
             }
         }
         {
-            let started_at = Instant::now()
-                .checked_sub(Duration::from_secs(25 * 60 * 60))
+            let started_at = Utc::now()
+                .checked_sub_signed(chrono::Duration::seconds(25 * 60 * 60))
                 .unwrap();
 
             let decision = backoff.for_task_started_at(started_at).should_retry(0);
