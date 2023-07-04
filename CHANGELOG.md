@@ -11,8 +11,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- [Breaking] Jitter algorithm changed from a variation of decorrelated jitter to either none, full, or bounded.
-- [Breaking] Now requires a task start time when using a total retry duration.
+- [Breaking] Change backoff and jitter algorithms
+  - Change the backoff algorithm to a more conventional exponential backoff.
+  - Replace the decorrelated jitter algorithm with an option of either none, full, or bounded. Defaults to full jitter.
+- [Breaking] Remove `ExponentialBackoffBuilder::backoff_exponent()`
+  - The number of attempts is now used as the exponent.
+- [Breaking] Require a task start time when using a total retry duration
+  - `ExponentialBackoffBuilder::build_with_total_retry_duration()` now returns `ExponentialBackoffTimed` which does not implement `RetryPolicy`.
+- [Breaking] Mark `ExponentialBackoff` as `non_exhaustive`
+  - Can no longer be constructed directly.
 
 ## [0.1.2] - 2022-10-28
 
