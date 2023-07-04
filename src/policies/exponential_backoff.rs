@@ -12,8 +12,6 @@ use std::{
 pub struct ExponentialBackoff {
     /// Maximum number of allowed retries attempts.
     pub max_n_retries: Option<u32>,
-    /// Maximum duration the retries can continue for, after which retries will stop.
-    pub max_total_retry_duration: Option<Duration>,
     /// Minimum waiting time between two retry attempts (it can end up being lower when using full jitter).
     pub min_retry_interval: Duration,
     /// Maximum waiting time between two retry attempts.
@@ -23,14 +21,20 @@ pub struct ExponentialBackoff {
 }
 
 /// Exponential backoff with a maximum retry duration.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ExponentialBackoffTimed {
-    inner: ExponentialBackoff,
+    /// Maximum duration the retries can continue for, after which retries will stop.
+    max_total_retry_duration: Option<Duration>,
+
+    backoff: ExponentialBackoff,
 }
 
 /// Exponential backoff with a maximum retry duration, for a task with a known start time.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ExponentialBackoffWithStart {
-    inner: ExponentialBackoff,
     started_at: Instant,
+
+    inner: ExponentialBackoffTimed,
 }
 
 /// Builds an exponential backoff policy.
@@ -118,7 +122,7 @@ impl RetryPolicy for ExponentialBackoff {
 impl ExponentialBackoffTimed {
     pub fn for_task_started_at(&self, started_at: Instant) -> ExponentialBackoffWithStart {
         ExponentialBackoffWithStart {
-            inner: self.inner,
+            inner: *self,
             started_at,
         }
     }
@@ -137,7 +141,7 @@ impl RetryPolicy for ExponentialBackoffWithStart {
         if self.trying_for_too_long() {
             RetryDecision::DoNotRetry
         } else {
-            self.inner.should_retry(n_past_retries)
+            self.inner.backoff.should_retry(n_past_retries)
         }
     }
 }
@@ -193,7 +197,6 @@ impl ExponentialBackoffBuilder {
             min_retry_interval: self.min_retry_interval,
             max_retry_interval: self.max_retry_interval,
             max_n_retries: Some(n),
-            max_total_retry_duration: None,
             jitter: self.jitter,
         }
     }
@@ -224,11 +227,11 @@ impl ExponentialBackoffBuilder {
         total_duration: Duration,
     ) -> ExponentialBackoffTimed {
         ExponentialBackoffTimed {
-            inner: ExponentialBackoff {
+            max_total_retry_duration: Some(total_duration),
+            backoff: ExponentialBackoff {
                 min_retry_interval: self.min_retry_interval,
                 max_retry_interval: self.max_retry_interval,
                 max_n_retries: None,
-                max_total_retry_duration: Some(total_duration),
                 jitter: self.jitter,
             },
         }
@@ -243,7 +246,6 @@ mod tests {
     fn get_retry_policy() -> ExponentialBackoff {
         ExponentialBackoff {
             max_n_retries: Some(6),
-            max_total_retry_duration: None,
             min_retry_interval: Duration::from_secs(1),
             max_retry_interval: Duration::from_secs(5 * 60),
             jitter: Jitter::Full,
