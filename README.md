@@ -22,7 +22,9 @@ Add `retry-policies` to your dependencies
 retry-policies = "0.2.0"
 ```
 
-#### License
+## License
+
+<!-- markdownlint-disable MD033 -->
 
 <sup>
 Licensed under either of <a href="LICENSE-APACHE">Apache License, Version
