@@ -201,7 +201,7 @@ impl ExponentialBackoffBuilder {
     /// Builds an [`ExponentialBackoff`] with the given maximum total duration for which retries will
     /// continue to be performed.
     ///
-    /// Requires the use of [`ExponentialBackoff::for_task_started_at()`].
+    /// Requires the use of [`ExponentialBackoffTimed::for_task_started_at()`].
     ///
     /// # Example
     ///
