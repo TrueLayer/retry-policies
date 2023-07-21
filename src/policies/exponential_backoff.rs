@@ -24,7 +24,7 @@ pub struct ExponentialBackoff {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ExponentialBackoffTimed {
     /// Maximum duration the retries can continue for, after which retries will stop.
-    max_total_retry_duration: Option<Duration>,
+    max_total_retry_duration: Duration,
 
     backoff: ExponentialBackoff,
 }
@@ -137,9 +137,7 @@ impl ExponentialBackoffTimed {
 
 impl ExponentialBackoffWithStart {
     fn trying_for_too_long(&self) -> bool {
-        self.inner
-            .max_total_retry_duration
-            .is_some_and(|max_d| max_d <= Self::elapsed(self.started_at))
+        self.inner.max_total_retry_duration <= Self::elapsed(self.started_at)
     }
 
     fn elapsed(started_at: DateTime<Utc>) -> Duration {
@@ -237,7 +235,7 @@ impl ExponentialBackoffBuilder {
         total_duration: Duration,
     ) -> ExponentialBackoffTimed {
         ExponentialBackoffTimed {
-            max_total_retry_duration: Some(total_duration),
+            max_total_retry_duration: total_duration,
             backoff: ExponentialBackoff {
                 min_retry_interval: self.min_retry_interval,
                 max_retry_interval: self.max_retry_interval,
