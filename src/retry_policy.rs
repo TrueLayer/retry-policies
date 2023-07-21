@@ -1,5 +1,6 @@
 use chrono::{DateTime, Utc};
 
+/// A policy for deciding whether and when to retry.
 pub trait RetryPolicy {
     /// Determine if a task should be retried according to a retry policy.
     fn should_retry(&self, n_past_retries: u32) -> RetryDecision;
@@ -12,4 +13,16 @@ pub enum RetryDecision {
     Retry { execute_after: DateTime<Utc> },
     /// Give up.
     DoNotRetry,
+}
+
+/// How to apply jitter to the retry intervals.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum Jitter {
+    /// Don't apply any jitter.
+    None,
+    /// Jitter between 0 and the calculated backoff duration.
+    Full,
+    /// Jitter between `min_retry_interval` and the calculated backoff duration.
+    Bounded,
 }

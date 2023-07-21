@@ -10,7 +10,7 @@ A collection of plug-and-play retry policies for Rust projects.
 Currently available algorithms:
 
 - [`ExponentialBackoff`](https://docs.rs/retry-policies/latest/retry_policies/policies/struct.ExponentialBackoff.html),
-  with decorrelated jitter.
+  with configurable jitter.
 
 ## How to install
 
@@ -19,10 +19,12 @@ Add `retry-policies` to your dependencies
 ```toml
 [dependencies]
 # ...
-retry-policies = "0.1.2"
+retry-policies = "0.2.0"
 ```
 
-#### License
+## License
+
+<!-- markdownlint-disable MD033 -->
 
 <sup>
 Licensed under either of <a href="LICENSE-APACHE">Apache License, Version

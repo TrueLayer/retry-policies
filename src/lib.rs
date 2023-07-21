@@ -2,4 +2,4 @@
 pub mod policies;
 mod retry_policy;
 
-pub use retry_policy::{RetryDecision, RetryPolicy};
+pub use retry_policy::{Jitter, RetryDecision, RetryPolicy};
