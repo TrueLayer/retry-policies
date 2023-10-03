@@ -24,9 +24,9 @@ pub struct ExponentialBackoff {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ExponentialBackoffTimed {
     /// Maximum duration the retries can continue for, after which retries will stop.
-    max_total_retry_duration: Duration,
+    pub max_total_retry_duration: Duration,
 
-    backoff: ExponentialBackoff,
+    pub backoff: ExponentialBackoff,
 }
 
 /// Exponential backoff with a maximum retry duration, for a task with a known start time.
@@ -244,8 +244,76 @@ impl ExponentialBackoffBuilder {
             },
         }
     }
-}
 
+    /// Builds an [`ExponentialBackoff`] with the given maximum total duration and calculates max
+    /// retries that should happen applying a 1.0 jitter factor.
+    /// We will enforce whatever comes first, max retries or total duration.
+    ///
+    /// Requires the use of [`ExponentialBackoffTimed::for_task_started_at()`].
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use chrono::{DateTime, Utc};
+    /// use retry_policies::{RetryDecision, RetryPolicy};
+    /// use retry_policies::policies::ExponentialBackoff;
+    /// use std::time::Duration;
+    ///
+    /// let exponential_backoff_timed = ExponentialBackoff::builder()
+    ///     .retry_bounds(Duration::from_secs(1), Duration::from_secs(6 * 60 * 60))
+    ///     .build_with_total_retry_duration_and_max_retries(Duration::from_secs(24 * 60 * 60));
+    ///
+    /// assert_eq!(exponential_backoff_timed.backoff.max_n_retries, Some(17));
+    ///
+    /// let started_at = Utc::now()
+    ///     .checked_sub_signed(chrono::Duration::seconds(25 * 60 * 60))
+    ///     .unwrap();
+    ///
+    /// exponential_backoff_timed.for_task_started_at(started_at)
+    ///     .should_retry(0); // RetryDecision::DoNotRetry
+    ///
+    /// let started_at = Utc::now()
+    ///     .checked_sub_signed(chrono::Duration::seconds(1 * 60 * 60))
+    ///     .unwrap();
+    ///
+    /// exponential_backoff_timed.for_task_started_at(started_at)
+    ///     .should_retry(18); // RetryDecision::DoNotRetry
+    /// ```
+    pub fn build_with_total_retry_duration_and_max_retries(
+        self,
+        total_duration: Duration,
+    ) -> ExponentialBackoffTimed {
+        let mut max_n_retries = None;
+
+        const MAX_JITTER: f64 = 1.0;
+
+        let delays = (0u32..).map(|n| {
+            let min_interval = self.min_retry_interval;
+            let backoff_factor = 2_u32.checked_pow(n).unwrap_or(u32::MAX);
+            let n_delay = (min_interval * backoff_factor).mul_f64(MAX_JITTER);
+            cmp::min(n_delay, self.max_retry_interval)
+        });
+
+        let mut approx_total = Duration::from_secs(0);
+        for (n, delay) in delays.enumerate() {
+            approx_total += delay;
+            if approx_total >= total_duration {
+                max_n_retries = Some(n as _);
+                break;
+            }
+        }
+
+        ExponentialBackoffTimed {
+            max_total_retry_duration: total_duration,
+            backoff: ExponentialBackoff {
+                min_retry_interval: self.min_retry_interval,
+                max_retry_interval: self.max_retry_interval,
+                max_n_retries,
+                jitter: self.jitter,
+            },
+        }
+    }
+}
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -349,6 +417,52 @@ mod tests {
             match decision {
                 RetryDecision::Retry { .. } => {}
                 _ => panic!("should retry"),
+            }
+        }
+        {
+            let started_at = Utc::now()
+                .checked_sub_signed(chrono::Duration::seconds(25 * 60 * 60))
+                .unwrap();
+
+            let decision = backoff.for_task_started_at(started_at).should_retry(0);
+
+            match decision {
+                RetryDecision::DoNotRetry => {}
+                _ => panic!("should not retry"),
+            }
+        }
+    }
+
+    #[test]
+    fn does_not_retry_before_total_retry_duration_if_max_retries_exceeded() {
+        let backoff = ExponentialBackoff::builder()
+            // This configuration should allow 17 max retries inside a 24h total duration
+            .retry_bounds(Duration::from_secs(1), Duration::from_secs(6 * 60 * 60))
+            .build_with_total_retry_duration_and_max_retries(Duration::from_secs(24 * 60 * 60));
+
+        {
+            let started_at = Utc::now()
+                .checked_sub_signed(chrono::Duration::seconds(23 * 60 * 60))
+                .unwrap();
+
+            let decision = backoff.for_task_started_at(started_at).should_retry(0);
+
+            match decision {
+                RetryDecision::Retry { .. } => {}
+                _ => panic!("should retry"),
+            }
+        }
+        {
+            let started_at = Utc::now()
+                .checked_sub_signed(chrono::Duration::seconds(23 * 60 * 60))
+                .unwrap();
+
+            // Zero based, so this is the 18th retry
+            let decision = backoff.for_task_started_at(started_at).should_retry(17);
+
+            match decision {
+                RetryDecision::DoNotRetry => {}
+                _ => panic!("should not retry"),
             }
         }
         {
