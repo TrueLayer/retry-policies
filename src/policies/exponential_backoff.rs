@@ -285,19 +285,17 @@ impl ExponentialBackoffBuilder {
     ) -> ExponentialBackoffTimed {
         let mut max_n_retries = None;
 
-        const NO_JITTER: f64 = 1.0;
-
         let delays = (0u32..).map(|n| {
-            let min_interval = self.min_retry_interval;
-            let backoff_factor = 2_u32.checked_pow(n).unwrap_or(u32::MAX);
-            let n_delay = (min_interval * backoff_factor).mul_f64(NO_JITTER);
-            cmp::min(n_delay, self.max_retry_interval)
+            min(
+                self.max_retry_interval,
+                self.min_retry_interval * 2_u32.checked_pow(n).unwrap_or(u32::MAX),
+            )
         });
 
-        let mut approx_total = Duration::from_secs(0);
+        let mut total = Duration::from_secs(0);
         for (n, delay) in delays.enumerate() {
-            approx_total += delay;
-            if approx_total >= total_duration {
+            total += delay;
+            if total >= total_duration {
                 max_n_retries = Some(n as _);
                 break;
             }
