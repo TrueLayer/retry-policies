@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Total duration algorithm can now be configured to also consider max retries, calculated applying max jitter
+- Total duration algorithm can now be configured to also consider max retries, calculated applying no jitter (1.0)
   - We enforce whatever comes first, total duration or max retries
 
 ## [0.2.0] - 2023-07-21
