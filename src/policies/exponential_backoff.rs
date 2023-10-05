@@ -232,8 +232,8 @@ impl ExponentialBackoffBuilder {
     ///     .checked_sub_signed(chrono::Duration::seconds(25 * 60 * 60))
     ///     .unwrap();
     ///
-    /// backoff.for_task_started_at(started_at)
-    ///     .should_retry(0); // RetryDecision::DoNotRetry
+    /// let should_retry = backoff.for_task_started_at(started_at).should_retry(0);
+    /// assert!(matches!(RetryDecision::DoNotRetry, should_retry));
     /// ```
     pub fn build_with_total_retry_duration(
         self,
@@ -285,15 +285,16 @@ impl ExponentialBackoffBuilder {
     ///     .checked_sub_signed(chrono::Duration::seconds(25 * 60 * 60))
     ///     .unwrap();
     ///
-    /// exponential_backoff_timed.for_task_started_at(started_at)
-    ///     .should_retry(0); // RetryDecision::DoNotRetry
+    /// let should_retry = exponential_backoff_timed.for_task_started_at(started_at).should_retry(0);
+    /// assert!(matches!(RetryDecision::DoNotRetry, should_retry));
     ///
     /// let started_at = Utc::now()
     ///     .checked_sub_signed(chrono::Duration::seconds(1 * 60 * 60))
     ///     .unwrap();
     ///
-    /// exponential_backoff_timed.for_task_started_at(started_at)
-    ///     .should_retry(18); // RetryDecision::DoNotRetry
+    /// let should_retry = exponential_backoff_timed.for_task_started_at(started_at).should_retry(18);
+    /// assert!(matches!(RetryDecision::DoNotRetry, should_retry));
+    ///
     /// ```
     pub fn build_with_total_retry_duration_and_max_retries(
         self,
