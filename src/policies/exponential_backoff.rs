@@ -257,11 +257,11 @@ impl ExponentialBackoffBuilder {
     /// 17 max retries, as 1s * pow(2, 16) = 65536s = ~18 hours and 18th attempt would be way
     /// after the 24 hours total duration.
     ///
-    /// If the 17th retry ends up being scheduled after 10 hours due to jitter, [`should_retry`]
+    /// If the 17th retry ends up being scheduled after 10 hours due to jitter, [`Self::should_retry`]
     /// will return false anyway: no retry will be allowed after total duration.
     ///
     /// If one of the 17 allowed retries for some reason (e.g. previous attempts taking a long time) ends up
-    /// being scheduled after total duration, [`should_retry`] will return false.
+    /// being scheduled after total duration, [`Self::should_retry`] will return false.
     ///
     /// Basically we will enforce whatever comes first, max retries or total duration.
     ///
