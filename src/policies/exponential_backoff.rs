@@ -18,6 +18,8 @@ pub struct ExponentialBackoff {
     pub max_retry_interval: Duration,
     /// How we apply jitter to the calculated backoff intervals.
     pub jitter: Jitter,
+    /// Base of the exponential
+    pub base: u32,
 }
 
 /// Exponential backoff with a maximum retry duration.
@@ -49,12 +51,14 @@ pub struct ExponentialBackoffWithStart {
 /// let backoff = ExponentialBackoff::builder()
 ///     .retry_bounds(Duration::from_secs(1), Duration::from_secs(60))
 ///     .jitter(Jitter::Bounded)
+///     .base(2)
 ///     .build_with_total_retry_duration(Duration::from_secs(24 * 60 * 60));
 /// ```
 pub struct ExponentialBackoffBuilder {
     min_retry_interval: Duration,
     max_retry_interval: Duration,
     jitter: Jitter,
+    base: u32,
 }
 
 impl ExponentialBackoff {
@@ -71,6 +75,7 @@ impl ExponentialBackoff {
     /// assert_eq!(backoff.min_retry_interval, Duration::from_secs(1));
     /// assert_eq!(backoff.max_retry_interval, Duration::from_secs(30 * 60));
     /// assert_eq!(backoff.max_n_retries, Some(5));
+    /// assert_eq!(backoff.base, 2);
     /// ```
     pub fn builder() -> ExponentialBackoffBuilder {
         <_>::default()
@@ -89,7 +94,7 @@ impl RetryPolicy for ExponentialBackoff {
         } else {
             let unjittered_wait_for = min(
                 self.max_retry_interval,
-                self.min_retry_interval * 2_u32.checked_pow(n_past_retries).unwrap_or(u32::MAX),
+                self.min_retry_interval * self.base.checked_pow(n_past_retries).unwrap_or(u32::MAX),
             );
 
             let jittered_wait_for = match self.jitter {
@@ -170,6 +175,7 @@ impl Default for ExponentialBackoffBuilder {
             min_retry_interval: Duration::from_secs(1),
             max_retry_interval: Duration::from_secs(30 * 60),
             jitter: Jitter::Full,
+            base: 2,
         }
     }
 }
@@ -200,6 +206,12 @@ impl ExponentialBackoffBuilder {
         self
     }
 
+    /// Set what base to use for the exponential.
+    pub fn base(mut self, base: u32) -> Self {
+        self.base = base;
+        self
+    }
+
     /// Builds an [`ExponentialBackoff`] with the given maximum retries.
     ///
     /// See [`ExponentialBackoff::max_n_retries`].
@@ -209,6 +221,7 @@ impl ExponentialBackoffBuilder {
             max_retry_interval: self.max_retry_interval,
             max_n_retries: Some(n),
             jitter: self.jitter,
+            base: self.base,
         }
     }
 
@@ -246,6 +259,7 @@ impl ExponentialBackoffBuilder {
                 max_retry_interval: self.max_retry_interval,
                 max_n_retries: None,
                 jitter: self.jitter,
+                base: self.base,
             },
         }
     }
@@ -253,8 +267,8 @@ impl ExponentialBackoffBuilder {
     /// Builds an [`ExponentialBackoff`] with the given maximum total duration and calculates max
     /// retries that should happen applying no jitter.
     ///
-    /// For example if we set total duration 24 hours, with retry bounds [1s, 24h], we would calculate
-    /// 17 max retries, as 1s * pow(2, 16) = 65536s = ~18 hours and 18th attempt would be way
+    /// For example if we set total duration 24 hours, with retry bounds [1s, 24h] and 2 as base of the exponential,
+    /// we would calculate 17 max retries, as 1s * pow(2, 16) = 65536s = ~18 hours and 18th attempt would be way
     /// after the 24 hours total duration.
     ///
     /// If the 17th retry ends up being scheduled after 10 hours due to jitter, [`ExponentialBackoff::should_retry`]
@@ -305,7 +319,7 @@ impl ExponentialBackoffBuilder {
         let delays = (0u32..).map(|n| {
             min(
                 self.max_retry_interval,
-                self.min_retry_interval * 2_u32.checked_pow(n).unwrap_or(u32::MAX),
+                self.min_retry_interval * self.base.checked_pow(n).unwrap_or(u32::MAX),
             )
         });
 
@@ -325,6 +339,7 @@ impl ExponentialBackoffBuilder {
                 max_retry_interval: self.max_retry_interval,
                 max_n_retries,
                 jitter: self.jitter,
+                base: self.base,
             },
         }
     }
@@ -340,6 +355,7 @@ mod tests {
             min_retry_interval: Duration::from_secs(1),
             max_retry_interval: Duration::from_secs(5 * 60),
             jitter: Jitter::Full,
+            base: 2,
         }
     }
 
@@ -492,5 +508,27 @@ mod tests {
                 _ => panic!("should not retry"),
             }
         }
+    }
+
+    #[test]
+    fn different_exponential_base_produce_different_max_retries_for_the_same_duration() {
+        let backoff_base_2 = ExponentialBackoff::builder()
+            .retry_bounds(Duration::from_secs(1), Duration::from_secs(60 * 60))
+            .base(2)
+            .build_with_total_retry_duration_and_max_retries(Duration::from_secs(60 * 60));
+
+        let backoff_base_3 = ExponentialBackoff::builder()
+            .retry_bounds(Duration::from_secs(1), Duration::from_secs(60 * 60))
+            .base(3)
+            .build_with_total_retry_duration_and_max_retries(Duration::from_secs(60 * 60));
+
+        let backoff_base_4 = ExponentialBackoff::builder()
+            .retry_bounds(Duration::from_secs(1), Duration::from_secs(60 * 60))
+            .base(4)
+            .build_with_total_retry_duration_and_max_retries(Duration::from_secs(60 * 60));
+
+        assert_eq!(backoff_base_2.max_retries().unwrap(), 11);
+        assert_eq!(backoff_base_3.max_retries().unwrap(), 8);
+        assert_eq!(backoff_base_4.max_retries().unwrap(), 6);
     }
 }
