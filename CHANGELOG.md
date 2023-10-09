@@ -7,12 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.2.1] - 2023-10-03
+## [0.2.1] - 2023-10-09
 
 ### Added
 
 - Total duration algorithm can now be configured to also consider max retries, calculated applying no jitter (1.0)
   - We enforce whatever comes first, total duration or max retries
+- Exponential base is now configurable
 
 ## [0.2.0] - 2023-07-21
 
