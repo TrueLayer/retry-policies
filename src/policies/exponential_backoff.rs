@@ -94,7 +94,7 @@ impl RetryPolicy for ExponentialBackoff {
         } else {
             let unjittered_wait_for = min(
                 self.max_retry_interval,
-                self.min_retry_interval * self.base.checked_pow(n_past_retries).unwrap_or(u32::MAX),
+                self.min_retry_interval * calculate_exponential(self.base, n_past_retries),
             );
 
             let jittered_wait_for = match self.jitter {
@@ -128,6 +128,11 @@ fn clip_and_convert(duration: Duration, max_duration: Duration) -> chrono::Durat
     // Unwrapping is fine given that we are guaranteed to never exceed the maximum retry interval
     // in magnitude and that is well within range for chrono::Duration
     chrono::Duration::from_std(cmp::min(duration, max_duration)).unwrap()
+}
+
+/// Calculate exponential using base and number of past retries
+fn calculate_exponential(base: u32, n_past_retries: u32) -> u32 {
+    base.checked_pow(n_past_retries).unwrap_or(u32::MAX)
 }
 
 impl ExponentialBackoffTimed {
@@ -319,7 +324,7 @@ impl ExponentialBackoffBuilder {
         let delays = (0u32..).map(|n| {
             min(
                 self.max_retry_interval,
-                self.min_retry_interval * self.base.checked_pow(n).unwrap_or(u32::MAX),
+                self.min_retry_interval * calculate_exponential(self.base, n),
             )
         });
 
