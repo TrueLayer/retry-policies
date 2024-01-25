@@ -3,7 +3,8 @@ use chrono::{DateTime, Utc};
 /// A policy for deciding whether and when to retry.
 pub trait RetryPolicy {
     /// Determine if a task should be retried according to a retry policy.
-    fn should_retry(&self, n_past_retries: u32) -> RetryDecision;
+    fn should_retry(&self, request_start_time: DateTime<Utc>, n_past_retries: u32)
+        -> RetryDecision;
 }
 
 /// Outcome of evaluating a retry policy for a failed task.

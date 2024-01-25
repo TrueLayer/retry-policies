@@ -31,14 +31,6 @@ pub struct ExponentialBackoffTimed {
     backoff: ExponentialBackoff,
 }
 
-/// Exponential backoff with a maximum retry duration, for a task with a known start time.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct ExponentialBackoffWithStart {
-    started_at: DateTime<Utc>,
-
-    inner: ExponentialBackoffTimed,
-}
-
 /// Builds an exponential backoff policy.
 ///
 /// # Example
@@ -88,7 +80,11 @@ impl ExponentialBackoff {
 }
 
 impl RetryPolicy for ExponentialBackoff {
-    fn should_retry(&self, n_past_retries: u32) -> RetryDecision {
+    fn should_retry(
+        &self,
+        _request_start_time: DateTime<Utc>,
+        n_past_retries: u32,
+    ) -> RetryDecision {
         if self.too_many_attempts(n_past_retries) {
             RetryDecision::DoNotRetry
         } else {
@@ -136,23 +132,13 @@ fn calculate_exponential(base: u32, n_past_retries: u32) -> u32 {
 }
 
 impl ExponentialBackoffTimed {
-    /// Create a [`RetryPolicy`] for a task started at the given
-    pub fn for_task_started_at(&self, started_at: DateTime<Utc>) -> ExponentialBackoffWithStart {
-        ExponentialBackoffWithStart {
-            inner: *self,
-            started_at,
-        }
-    }
-
     /// Maximum number of allowed retries attempts.
     pub fn max_retries(&self) -> Option<u32> {
         self.backoff.max_n_retries
     }
-}
 
-impl ExponentialBackoffWithStart {
-    fn trying_for_too_long(&self) -> bool {
-        self.inner.max_total_retry_duration <= Self::elapsed(self.started_at)
+    fn trying_for_too_long(&self, started_at: DateTime<Utc>) -> bool {
+        self.max_total_retry_duration <= Self::elapsed(started_at)
     }
 
     fn elapsed(started_at: DateTime<Utc>) -> Duration {
@@ -164,16 +150,6 @@ impl ExponentialBackoffWithStart {
     }
 }
 
-impl RetryPolicy for ExponentialBackoffWithStart {
-    fn should_retry(&self, n_past_retries: u32) -> RetryDecision {
-        if self.trying_for_too_long() {
-            RetryDecision::DoNotRetry
-        } else {
-            self.inner.backoff.should_retry(n_past_retries)
-        }
-    }
-}
-
 impl Default for ExponentialBackoffBuilder {
     fn default() -> Self {
         Self {
@@ -182,6 +158,20 @@ impl Default for ExponentialBackoffBuilder {
             jitter: Jitter::Full,
             base: 2,
         }
+    }
+}
+
+impl RetryPolicy for ExponentialBackoffTimed {
+    fn should_retry(
+        &self,
+        request_start_time: DateTime<Utc>,
+        n_past_retries: u32,
+    ) -> RetryDecision {
+        if self.trying_for_too_long(request_start_time) {
+            return RetryDecision::DoNotRetry;
+        }
+        self.backoff
+            .should_retry(request_start_time, n_past_retries)
     }
 }
 
@@ -233,8 +223,6 @@ impl ExponentialBackoffBuilder {
     /// Builds an [`ExponentialBackoff`] with the given maximum total duration for which retries will
     /// continue to be performed.
     ///
-    /// Requires the use of [`ExponentialBackoffTimed::for_task_started_at()`].
-    ///
     /// # Example
     ///
     /// ```rust
@@ -250,7 +238,7 @@ impl ExponentialBackoffBuilder {
     ///     .checked_sub_signed(chrono::Duration::seconds(25 * 60 * 60))
     ///     .unwrap();
     ///
-    /// let should_retry = backoff.for_task_started_at(started_at).should_retry(0);
+    /// let should_retry = backoff.should_retry(started_at, 0);
     /// assert!(matches!(RetryDecision::DoNotRetry, should_retry));
     /// ```
     pub fn build_with_total_retry_duration(
@@ -284,8 +272,6 @@ impl ExponentialBackoffBuilder {
     ///
     /// Basically we will enforce whatever comes first, max retries or total duration.
     ///
-    /// Requires the use of [`ExponentialBackoffTimed::for_task_started_at()`].
-    ///
     /// # Example
     ///
     /// ```rust
@@ -304,14 +290,14 @@ impl ExponentialBackoffBuilder {
     ///     .checked_sub_signed(chrono::Duration::seconds(25 * 60 * 60))
     ///     .unwrap();
     ///
-    /// let should_retry = exponential_backoff_timed.for_task_started_at(started_at).should_retry(0);
+    /// let should_retry = exponential_backoff_timed.should_retry(started_at, 0);
     /// assert!(matches!(RetryDecision::DoNotRetry, should_retry));
     ///
     /// let started_at = Utc::now()
     ///     .checked_sub_signed(chrono::Duration::seconds(1 * 60 * 60))
     ///     .unwrap();
     ///
-    /// let should_retry = exponential_backoff_timed.for_task_started_at(started_at).should_retry(18);
+    /// let should_retry = exponential_backoff_timed.should_retry(started_at, 18);
     /// assert!(matches!(RetryDecision::DoNotRetry, should_retry));
     ///
     /// ```
@@ -372,7 +358,7 @@ mod tests {
         assert!(n_past_retries < policy.max_n_retries.unwrap());
 
         // Act
-        let decision = policy.should_retry(n_past_retries);
+        let decision = policy.should_retry(Utc::now(), n_past_retries);
 
         // Assert
         matches!(decision, RetryDecision::Retry { .. });
@@ -386,7 +372,7 @@ mod tests {
         assert!(n_past_retries >= policy.max_n_retries.unwrap());
 
         // Act
-        let decision = policy.should_retry(n_past_retries);
+        let decision = policy.should_retry(Utc::now(), n_past_retries);
 
         // Assert
         matches!(decision, RetryDecision::DoNotRetry);
@@ -399,7 +385,7 @@ mod tests {
         let max_interval = chrono::Duration::from_std(policy.max_retry_interval).unwrap();
 
         // Act
-        let decision = policy.should_retry(policy.max_n_retries.unwrap() - 1);
+        let decision = policy.should_retry(Utc::now(), policy.max_n_retries.unwrap() - 1);
 
         // Assert
         match decision {
@@ -420,7 +406,7 @@ mod tests {
         let n_failed_attempts = u32::MAX - 1;
 
         // Act
-        let decision = policy.should_retry(n_failed_attempts);
+        let decision = policy.should_retry(Utc::now(), n_failed_attempts);
 
         // Assert
         match decision {
@@ -448,7 +434,7 @@ mod tests {
                 .checked_sub_signed(chrono::Duration::seconds(23 * 60 * 60))
                 .unwrap();
 
-            let decision = backoff.for_task_started_at(started_at).should_retry(0);
+            let decision = backoff.should_retry(started_at, 0);
 
             match decision {
                 RetryDecision::Retry { .. } => {}
@@ -460,7 +446,7 @@ mod tests {
                 .checked_sub_signed(chrono::Duration::seconds(25 * 60 * 60))
                 .unwrap();
 
-            let decision = backoff.for_task_started_at(started_at).should_retry(0);
+            let decision = backoff.should_retry(started_at, 0);
 
             match decision {
                 RetryDecision::DoNotRetry => {}
@@ -481,7 +467,7 @@ mod tests {
                 .checked_sub_signed(chrono::Duration::seconds(23 * 60 * 60))
                 .unwrap();
 
-            let decision = backoff.for_task_started_at(started_at).should_retry(0);
+            let decision = backoff.should_retry(started_at, 0);
 
             match decision {
                 RetryDecision::Retry { .. } => {}
@@ -494,7 +480,7 @@ mod tests {
                 .unwrap();
 
             // Zero based, so this is the 18th retry
-            let decision = backoff.for_task_started_at(started_at).should_retry(17);
+            let decision = backoff.should_retry(started_at, 17);
 
             match decision {
                 RetryDecision::DoNotRetry => {}
@@ -506,7 +492,7 @@ mod tests {
                 .checked_sub_signed(chrono::Duration::seconds(25 * 60 * 60))
                 .unwrap();
 
-            let decision = backoff.for_task_started_at(started_at).should_retry(0);
+            let decision = backoff.should_retry(started_at, 0);
 
             match decision {
                 RetryDecision::DoNotRetry => {}
