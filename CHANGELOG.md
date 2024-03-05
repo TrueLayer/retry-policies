@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- [Breaking] Replace `chrono` with standard library types
+  - Replace `chrono::DateTime<Utc>` with `std::time::SystemTime`
+
+### Removed
+
+- Remove unused `anyhow` dependency
+- Remove `fake` dependency
+
 ## [0.3.0] - 2024-03-04
 - [Breaking] Implement `RetryPolicy` for `ExponentialBackoffTimed`, which requires a modification to the `should_retry` method of 
     `RetryPolicy` in order to pass the time at which the task (original request) was started.
