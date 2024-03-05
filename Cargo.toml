@@ -11,6 +11,3 @@ categories = ["network-programming"]
 
 [dependencies]
 rand = "0.8.4"
-
-[dev-dependencies]
-fake = "2.4.1"
