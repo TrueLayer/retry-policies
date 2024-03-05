@@ -1,9 +1,8 @@
 use crate::{Jitter, RetryDecision, RetryPolicy};
-use chrono::{DateTime, Utc};
 use rand::distributions::uniform::{UniformFloat, UniformSampler};
 use std::{
     cmp::{self, min},
-    time::Duration,
+    time::{Duration, SystemTime},
 };
 
 /// Exponential backoff with optional jitter.
@@ -80,11 +79,7 @@ impl ExponentialBackoff {
 }
 
 impl RetryPolicy for ExponentialBackoff {
-    fn should_retry(
-        &self,
-        _request_start_time: DateTime<Utc>,
-        n_past_retries: u32,
-    ) -> RetryDecision {
+    fn should_retry(&self, _request_start_time: SystemTime, n_past_retries: u32) -> RetryDecision {
         if self.too_many_attempts(n_past_retries) {
             RetryDecision::DoNotRetry
         } else {
@@ -113,17 +108,15 @@ impl RetryPolicy for ExponentialBackoff {
             };
 
             let execute_after =
-                Utc::now() + clip_and_convert(jittered_wait_for, self.max_retry_interval);
+                SystemTime::now() + clip(jittered_wait_for, self.max_retry_interval);
             RetryDecision::Retry { execute_after }
         }
     }
 }
 
-/// Clip to the maximum allowed retry interval and convert to [`chrono::Duration`].
-fn clip_and_convert(duration: Duration, max_duration: Duration) -> chrono::Duration {
-    // Unwrapping is fine given that we are guaranteed to never exceed the maximum retry interval
-    // in magnitude and that is well within range for chrono::Duration
-    chrono::Duration::from_std(cmp::min(duration, max_duration)).unwrap()
+/// Clip to the maximum allowed retry interval.
+fn clip(duration: Duration, max_duration: Duration) -> Duration {
+    cmp::min(duration, max_duration)
 }
 
 /// Calculate exponential using base and number of past retries
@@ -137,14 +130,13 @@ impl ExponentialBackoffTimed {
         self.backoff.max_n_retries
     }
 
-    fn trying_for_too_long(&self, started_at: DateTime<Utc>) -> bool {
+    fn trying_for_too_long(&self, started_at: SystemTime) -> bool {
         self.max_total_retry_duration <= Self::elapsed(started_at)
     }
 
-    fn elapsed(started_at: DateTime<Utc>) -> Duration {
-        Utc::now()
-            .signed_duration_since(started_at)
-            .to_std()
+    fn elapsed(started_at: SystemTime) -> Duration {
+        SystemTime::now()
+            .duration_since(started_at)
             // If `started_at` is in the future then return a zero duration.
             .unwrap_or_default()
     }
@@ -162,11 +154,7 @@ impl Default for ExponentialBackoffBuilder {
 }
 
 impl RetryPolicy for ExponentialBackoffTimed {
-    fn should_retry(
-        &self,
-        request_start_time: DateTime<Utc>,
-        n_past_retries: u32,
-    ) -> RetryDecision {
+    fn should_retry(&self, request_start_time: SystemTime, n_past_retries: u32) -> RetryDecision {
         if self.trying_for_too_long(request_start_time) {
             return RetryDecision::DoNotRetry;
         }
@@ -226,16 +214,15 @@ impl ExponentialBackoffBuilder {
     /// # Example
     ///
     /// ```rust
-    /// use chrono::{DateTime, Utc};
     /// use retry_policies::{RetryDecision, RetryPolicy};
     /// use retry_policies::policies::ExponentialBackoff;
-    /// use std::time::Duration;
+    /// use std::time::{Duration, SystemTime};
     ///
     /// let backoff = ExponentialBackoff::builder()
     ///     .build_with_total_retry_duration(Duration::from_secs(24 * 60 * 60));
     ///
-    /// let started_at = Utc::now()
-    ///     .checked_sub_signed(chrono::Duration::seconds(25 * 60 * 60))
+    /// let started_at = SystemTime::now()
+    ///     .checked_sub(Duration::from_secs(25 * 60 * 60))
     ///     .unwrap();
     ///
     /// let should_retry = backoff.should_retry(started_at, 0);
@@ -275,10 +262,9 @@ impl ExponentialBackoffBuilder {
     /// # Example
     ///
     /// ```rust
-    /// use chrono::{DateTime, Utc};
     /// use retry_policies::{RetryDecision, RetryPolicy};
     /// use retry_policies::policies::ExponentialBackoff;
-    /// use std::time::Duration;
+    /// use std::time::{Duration, SystemTime};
     ///
     /// let exponential_backoff_timed = ExponentialBackoff::builder()
     ///     .retry_bounds(Duration::from_secs(1), Duration::from_secs(6 * 60 * 60))
@@ -286,15 +272,15 @@ impl ExponentialBackoffBuilder {
     ///
     /// assert_eq!(exponential_backoff_timed.max_retries(), Some(17));
     ///
-    /// let started_at = Utc::now()
-    ///     .checked_sub_signed(chrono::Duration::seconds(25 * 60 * 60))
+    /// let started_at = SystemTime::now()
+    ///     .checked_sub(Duration::from_secs(25 * 60 * 60))
     ///     .unwrap();
     ///
     /// let should_retry = exponential_backoff_timed.should_retry(started_at, 0);
     /// assert!(matches!(RetryDecision::DoNotRetry, should_retry));
     ///
-    /// let started_at = Utc::now()
-    ///     .checked_sub_signed(chrono::Duration::seconds(1 * 60 * 60))
+    /// let started_at = SystemTime::now()
+    ///     .checked_sub(Duration::from_secs(1 * 60 * 60))
     ///     .unwrap();
     ///
     /// let should_retry = exponential_backoff_timed.should_retry(started_at, 18);
@@ -358,7 +344,7 @@ mod tests {
         assert!(n_past_retries < policy.max_n_retries.unwrap());
 
         // Act
-        let decision = policy.should_retry(Utc::now(), n_past_retries);
+        let decision = policy.should_retry(SystemTime::now(), n_past_retries);
 
         // Assert
         matches!(decision, RetryDecision::Retry { .. });
@@ -372,7 +358,7 @@ mod tests {
         assert!(n_past_retries >= policy.max_n_retries.unwrap());
 
         // Act
-        let decision = policy.should_retry(Utc::now(), n_past_retries);
+        let decision = policy.should_retry(SystemTime::now(), n_past_retries);
 
         // Assert
         matches!(decision, RetryDecision::DoNotRetry);
@@ -382,15 +368,15 @@ mod tests {
     fn maximum_retry_interval_is_never_exceeded() {
         // Arrange
         let policy = get_retry_policy();
-        let max_interval = chrono::Duration::from_std(policy.max_retry_interval).unwrap();
+        let max_interval = policy.max_retry_interval;
 
         // Act
-        let decision = policy.should_retry(Utc::now(), policy.max_n_retries.unwrap() - 1);
+        let decision = policy.should_retry(SystemTime::now(), policy.max_n_retries.unwrap() - 1);
 
         // Assert
         match decision {
             RetryDecision::Retry { execute_after } => {
-                assert!((execute_after - Utc::now()) <= max_interval)
+                assert!(execute_after.duration_since(SystemTime::now()).unwrap() <= max_interval)
             }
             RetryDecision::DoNotRetry => panic!("Expected Retry decision."),
         }
@@ -402,16 +388,16 @@ mod tests {
             max_n_retries: Some(u32::MAX),
             ..get_retry_policy()
         };
-        let max_interval = chrono::Duration::from_std(policy.max_retry_interval).unwrap();
+        let max_interval = policy.max_retry_interval;
         let n_failed_attempts = u32::MAX - 1;
 
         // Act
-        let decision = policy.should_retry(Utc::now(), n_failed_attempts);
+        let decision = policy.should_retry(SystemTime::now(), n_failed_attempts);
 
         // Assert
         match decision {
             RetryDecision::Retry { execute_after } => {
-                assert!((execute_after - Utc::now()) <= max_interval)
+                assert!(execute_after.duration_since(SystemTime::now()).unwrap() <= max_interval)
             }
             RetryDecision::DoNotRetry => panic!("Expected Retry decision."),
         }
@@ -430,8 +416,8 @@ mod tests {
             .build_with_total_retry_duration(Duration::from_secs(24 * 60 * 60));
 
         {
-            let started_at = Utc::now()
-                .checked_sub_signed(chrono::Duration::seconds(23 * 60 * 60))
+            let started_at = SystemTime::now()
+                .checked_sub(Duration::from_secs(23 * 60 * 60))
                 .unwrap();
 
             let decision = backoff.should_retry(started_at, 0);
@@ -442,8 +428,8 @@ mod tests {
             }
         }
         {
-            let started_at = Utc::now()
-                .checked_sub_signed(chrono::Duration::seconds(25 * 60 * 60))
+            let started_at = SystemTime::now()
+                .checked_sub(Duration::from_secs(25 * 60 * 60))
                 .unwrap();
 
             let decision = backoff.should_retry(started_at, 0);
@@ -463,8 +449,8 @@ mod tests {
             .build_with_total_retry_duration_and_max_retries(Duration::from_secs(24 * 60 * 60));
 
         {
-            let started_at = Utc::now()
-                .checked_sub_signed(chrono::Duration::seconds(23 * 60 * 60))
+            let started_at = SystemTime::now()
+                .checked_sub(Duration::from_secs(23 * 60 * 60))
                 .unwrap();
 
             let decision = backoff.should_retry(started_at, 0);
@@ -475,8 +461,8 @@ mod tests {
             }
         }
         {
-            let started_at = Utc::now()
-                .checked_sub_signed(chrono::Duration::seconds(23 * 60 * 60))
+            let started_at = SystemTime::now()
+                .checked_sub(Duration::from_secs(23 * 60 * 60))
                 .unwrap();
 
             // Zero based, so this is the 18th retry
@@ -488,8 +474,8 @@ mod tests {
             }
         }
         {
-            let started_at = Utc::now()
-                .checked_sub_signed(chrono::Duration::seconds(25 * 60 * 60))
+            let started_at = SystemTime::now()
+                .checked_sub(Duration::from_secs(25 * 60 * 60))
                 .unwrap();
 
             let decision = backoff.should_retry(started_at, 0);
