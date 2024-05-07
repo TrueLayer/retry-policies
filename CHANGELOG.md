@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.1](https://github.com/TrueLayer/retry-policies/compare/v0.3.0...v0.3.1) - 2024-05-07
+
+### Other
+- Auto-tag and publish public Rust crates ([#19](https://github.com/TrueLayer/retry-policies/pull/19))
+
 ## [0.3.0] - 2024-03-04
 - [Breaking] Implement `RetryPolicy` for `ExponentialBackoffTimed`, which requires a modification to the `should_retry` method of 
     `RetryPolicy` in order to pass the time at which the task (original request) was started.
