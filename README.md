@@ -19,7 +19,7 @@ Add `retry-policies` to your dependencies
 ```toml
 [dependencies]
 # ...
-retry-policies = "0.2.1"
+retry-policies = "0.4.0"
 ```
 
 ## License
