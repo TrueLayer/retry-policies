@@ -25,7 +25,7 @@ pub enum Jitter {
     None,
     /// Jitter between 0 and the calculated backoff duration.
     Full,
-    /// Jitter between `min_retry_interval` and the calculated backoff duration.
+    /// Jitter between 50% of `min_retry_interval` and the calculated backoff duration.
     Bounded,
 }
 
