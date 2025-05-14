@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0](https://github.com/TrueLayer/retry-policies/compare/v0.4.0...v0.5.0) - 2025-04-25
+
+### Changed
+
+- [Breaking] Renamed `build_with_total_retry_duration_and_max_retries` to `build_with_total_retry_duration_and_limit_retries`.
+
+### Added
+
+- Added `build_with_total_retry_duration_and_max_retries`.
+
 ## [0.4.0](https://github.com/TrueLayer/retry-policies/compare/v0.3.0...v0.4.0) - 2024-05-10
 
 ### Changed
@@ -20,7 +30,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Remove `fake` dependency
 
 ## [0.3.0] - 2024-03-04
-- [Breaking] Implement `RetryPolicy` for `ExponentialBackoffTimed`, which requires a modification to the `should_retry` method of 
+
+- [Breaking] Implement `RetryPolicy` for `ExponentialBackoffTimed`, which requires a modification to the `should_retry` method of
     `RetryPolicy` in order to pass the time at which the task (original request) was started.
 
 ## [0.2.1] - 2023-10-09
