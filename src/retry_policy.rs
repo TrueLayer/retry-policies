@@ -1,6 +1,6 @@
 use std::time::{Duration, SystemTime};
 
-use rand::distributions::uniform::{UniformFloat, UniformSampler};
+use rand::distr::uniform::{UniformFloat, UniformSampler};
 
 /// A policy for deciding whether and when to retry.
 pub trait RetryPolicy {
@@ -34,8 +34,8 @@ impl Jitter {
         match self {
             Jitter::None => interval,
             Jitter::Full => {
-                let jitter_factor =
-                    UniformFloat::<f64>::sample_single(0.0, 1.0, &mut rand::thread_rng());
+                let jitter_factor = UniformFloat::<f64>::sample_single(0.0, 1.0, &mut rand::rng())
+                    .expect("Sample range should be valid");
 
                 interval.mul_f64(jitter_factor)
             }
@@ -44,8 +44,8 @@ impl Jitter {
                 /// interval.
                 const MIN_BOUND_FRACTION: f64 = 0.5;
 
-                let jitter_factor =
-                    UniformFloat::<f64>::sample_single(0.0, 1.0, &mut rand::thread_rng());
+                let jitter_factor = UniformFloat::<f64>::sample_single(0.0, 1.0, &mut rand::rng())
+                    .expect("Sample range should be valid");
 
                 let jittered_wait_for =
                     (interval - min_interval.mul_f64(MIN_BOUND_FRACTION)).mul_f64(jitter_factor);

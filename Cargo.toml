@@ -10,4 +10,4 @@ keywords = ["retry", "policy", "backoff"]
 categories = ["network-programming"]
 
 [dependencies]
-rand = "0.8.4"
+rand = "0.9.1"

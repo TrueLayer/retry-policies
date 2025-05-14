@@ -329,8 +329,11 @@ impl ExponentialBackoffBuilder {
 }
 #[cfg(test)]
 mod tests {
+    use std::convert::TryFrom as _;
+
+    use rand::distr::{Distribution, Uniform};
+
     use super::*;
-    use rand::distributions::{Distribution, Uniform};
 
     fn get_retry_policy() -> ExponentialBackoff {
         ExponentialBackoff {
@@ -346,8 +349,9 @@ mod tests {
     fn if_n_past_retries_is_below_maximum_it_decides_to_retry() {
         // Arrange
         let policy = get_retry_policy();
-        let n_past_retries =
-            Uniform::from(0..policy.max_n_retries.unwrap()).sample(&mut rand::thread_rng());
+        let n_past_retries = Uniform::try_from(0..policy.max_n_retries.unwrap())
+            .unwrap()
+            .sample(&mut rand::rng());
         assert!(n_past_retries < policy.max_n_retries.unwrap());
 
         // Act
@@ -361,8 +365,9 @@ mod tests {
     fn if_n_past_retries_is_above_maximum_it_decides_to_mark_as_failed() {
         // Arrange
         let policy = get_retry_policy();
-        let n_past_retries =
-            Uniform::from(policy.max_n_retries.unwrap()..=u32::MAX).sample(&mut rand::thread_rng());
+        let n_past_retries = Uniform::try_from(policy.max_n_retries.unwrap()..=u32::MAX)
+            .unwrap()
+            .sample(&mut rand::rng());
         assert!(n_past_retries >= policy.max_n_retries.unwrap());
 
         // Act
