@@ -1,5 +1,4 @@
 use crate::{Jitter, RetryDecision, RetryPolicy};
-use rand::distributions::uniform::{UniformFloat, UniformSampler};
 use std::{
     cmp::{self, min},
     time::{Duration, SystemTime},
@@ -88,24 +87,9 @@ impl RetryPolicy for ExponentialBackoff {
                 self.min_retry_interval * calculate_exponential(self.base, n_past_retries),
             );
 
-            let jittered_wait_for = match self.jitter {
-                Jitter::None => unjittered_wait_for,
-                Jitter::Full => {
-                    let jitter_factor =
-                        UniformFloat::<f64>::sample_single(0.0, 1.0, &mut rand::thread_rng());
-
-                    unjittered_wait_for.mul_f64(jitter_factor)
-                }
-                Jitter::Bounded => {
-                    let jitter_factor =
-                        UniformFloat::<f64>::sample_single(0.0, 1.0, &mut rand::thread_rng());
-
-                    let jittered_wait_for =
-                        (unjittered_wait_for - self.min_retry_interval).mul_f64(jitter_factor);
-
-                    jittered_wait_for + self.min_retry_interval
-                }
-            };
+            let jittered_wait_for = self
+                .jitter
+                .apply(unjittered_wait_for, self.min_retry_interval);
 
             let execute_after =
                 SystemTime::now() + clip(jittered_wait_for, self.max_retry_interval);
