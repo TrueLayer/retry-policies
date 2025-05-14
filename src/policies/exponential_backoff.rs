@@ -272,7 +272,7 @@ impl ExponentialBackoffBuilder {
     ///
     /// let exponential_backoff_timed = ExponentialBackoff::builder()
     ///     .retry_bounds(Duration::from_secs(1), Duration::from_secs(6 * 60 * 60))
-    ///     .build_with_total_retry_duration_and_max_retries(Duration::from_secs(24 * 60 * 60));
+    ///     .build_with_total_retry_duration_and_limit_retries(Duration::from_secs(24 * 60 * 60));
     ///
     /// assert_eq!(exponential_backoff_timed.max_retries(), Some(17));
     ///
