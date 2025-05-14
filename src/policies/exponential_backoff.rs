@@ -10,7 +10,7 @@ use std::{
 pub struct ExponentialBackoff {
     /// Maximum number of allowed retries attempts.
     pub max_n_retries: Option<u32>,
-    /// Minimum waiting time between two retry attempts (it can end up being lower when using full jitter).
+    /// Minimum waiting time between two retry attempts (it can end up being lower due to jitter).
     pub min_retry_interval: Duration,
     /// Maximum waiting time between two retry attempts.
     pub max_retry_interval: Duration,

@@ -40,10 +40,15 @@ impl Jitter {
                 interval.mul_f64(jitter_factor)
             }
             Jitter::Bounded => {
+                /// The lower bound for the calculated interval, as a fraction of the minimum
+                /// interval.
+                const MIN_BOUND_FRACTION: f64 = 0.5;
+
                 let jitter_factor =
                     UniformFloat::<f64>::sample_single(0.0, 1.0, &mut rand::thread_rng());
 
-                let jittered_wait_for = (interval - min_interval).mul_f64(jitter_factor);
+                let jittered_wait_for =
+                    (interval - min_interval.mul_f64(MIN_BOUND_FRACTION)).mul_f64(jitter_factor);
 
                 jittered_wait_for + min_interval
             }
