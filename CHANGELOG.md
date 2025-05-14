@@ -7,7 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.5.0](https://github.com/TrueLayer/retry-policies/compare/v0.4.0...v0.5.0) - 2025-04-25
+## [0.5.1](https://github.com/TrueLayer/retry-policies/compare/v0.5.0...v0.5.1) - 2025-05-14
+
+### Changed
+
+- Improved bounded jitter to use 50% of `min_retry_interval` instead of 100%.
+
+## [0.5.0](https://github.com/TrueLayer/retry-policies/compare/v0.4.0...v0.5.0) - 2025-05-14
 
 ### Changed
 
