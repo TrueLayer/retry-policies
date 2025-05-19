@@ -30,6 +30,10 @@ pub enum Jitter {
 }
 
 impl Jitter {
+    /// The lower bound for the calculated interval, as a fraction of the minimum
+    /// interval.
+    const BOUNDED_MIN_BOUND_FRACTION: f64 = 0.5;
+
     pub(crate) fn apply(&self, interval: Duration, min_interval: Duration) -> Duration {
         match self {
             Jitter::None => interval,
@@ -40,18 +44,50 @@ impl Jitter {
                 interval.mul_f64(jitter_factor)
             }
             Jitter::Bounded => {
-                /// The lower bound for the calculated interval, as a fraction of the minimum
-                /// interval.
-                const MIN_BOUND_FRACTION: f64 = 0.5;
-
                 let jitter_factor = UniformFloat::<f64>::sample_single(0.0, 1.0, &mut rand::rng())
                     .expect("Sample range should be valid");
 
-                let jittered_wait_for =
-                    (interval - min_interval.mul_f64(MIN_BOUND_FRACTION)).mul_f64(jitter_factor);
+                let jittered_wait_for = (interval
+                    - min_interval.mul_f64(Self::BOUNDED_MIN_BOUND_FRACTION))
+                .mul_f64(jitter_factor);
 
-                jittered_wait_for + min_interval
+                jittered_wait_for + min_interval.mul_f64(Self::BOUNDED_MIN_BOUND_FRACTION)
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::Duration;
+
+    #[test]
+    fn test_jitter_none() {
+        let jitter = Jitter::None;
+        let interval = Duration::from_secs(10);
+        let min_interval = Duration::from_secs(5);
+        assert_eq!(jitter.apply(interval, min_interval), interval);
+    }
+
+    #[test]
+    fn test_jitter_full() {
+        let jitter = Jitter::Full;
+        let interval = Duration::from_secs(10);
+        let min_interval = Duration::from_secs(5);
+        let result = jitter.apply(interval, min_interval);
+        assert!(result >= Duration::ZERO && result <= interval);
+    }
+
+    #[test]
+    fn test_jitter_bounded() {
+        let jitter = Jitter::Bounded;
+        let interval = Duration::from_secs(10);
+        let min_interval = Duration::from_secs(5);
+        let result = jitter.apply(interval, min_interval);
+        assert!(
+            result >= min_interval.mul_f64(Jitter::BOUNDED_MIN_BOUND_FRACTION)
+                && result <= interval
+        );
     }
 }
