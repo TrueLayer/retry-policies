@@ -1,5 +1,5 @@
 use crate::{Jitter, RetryDecision, RetryPolicy};
-use rand::distributions::uniform::{UniformFloat, UniformSampler};
+use rand::distr::uniform::{UniformFloat, UniformSampler};
 use std::{
     cmp::{self, min},
     time::{Duration, SystemTime},
@@ -92,13 +92,13 @@ impl RetryPolicy for ExponentialBackoff {
                 Jitter::None => unjittered_wait_for,
                 Jitter::Full => {
                     let jitter_factor =
-                        UniformFloat::<f64>::sample_single(0.0, 1.0, &mut rand::thread_rng());
+                        UniformFloat::<f64>::sample_single(0.0, 1.0, &mut rand::rng()).unwrap();
 
                     unjittered_wait_for.mul_f64(jitter_factor)
                 }
                 Jitter::Bounded => {
                     let jitter_factor =
-                        UniformFloat::<f64>::sample_single(0.0, 1.0, &mut rand::thread_rng());
+                        UniformFloat::<f64>::sample_single(0.0, 1.0, &mut rand::rng()).unwrap();
 
                     let jittered_wait_for =
                         (unjittered_wait_for - self.min_retry_interval).mul_f64(jitter_factor);
@@ -272,7 +272,7 @@ impl ExponentialBackoffBuilder {
     ///
     /// let exponential_backoff_timed = ExponentialBackoff::builder()
     ///     .retry_bounds(Duration::from_secs(1), Duration::from_secs(6 * 60 * 60))
-    ///     .build_with_total_retry_duration_and_max_retries(Duration::from_secs(24 * 60 * 60));
+    ///     .build_with_total_retry_duration_and_max_retries(Duration::from_secs(24 * 60 * 60), 17);
     ///
     /// assert_eq!(exponential_backoff_timed.max_retries(), Some(17));
     ///
@@ -346,7 +346,8 @@ impl ExponentialBackoffBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rand::distributions::{Distribution, Uniform};
+    use rand::distr::{Distribution, Uniform};
+    use std::convert::TryFrom as _;
 
     fn get_retry_policy() -> ExponentialBackoff {
         ExponentialBackoff {
@@ -362,8 +363,9 @@ mod tests {
     fn if_n_past_retries_is_below_maximum_it_decides_to_retry() {
         // Arrange
         let policy = get_retry_policy();
-        let n_past_retries =
-            Uniform::from(0..policy.max_n_retries.unwrap()).sample(&mut rand::thread_rng());
+        let n_past_retries = Uniform::try_from(0..policy.max_n_retries.unwrap())
+            .unwrap()
+            .sample(&mut rand::rng());
         assert!(n_past_retries < policy.max_n_retries.unwrap());
 
         // Act
@@ -377,8 +379,9 @@ mod tests {
     fn if_n_past_retries_is_above_maximum_it_decides_to_mark_as_failed() {
         // Arrange
         let policy = get_retry_policy();
-        let n_past_retries =
-            Uniform::from(policy.max_n_retries.unwrap()..=u32::MAX).sample(&mut rand::thread_rng());
+        let n_past_retries = Uniform::try_from(policy.max_n_retries.unwrap()..=u32::MAX)
+            .unwrap()
+            .sample(&mut rand::rng());
         assert!(n_past_retries >= policy.max_n_retries.unwrap());
 
         // Act

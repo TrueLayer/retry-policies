@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Bump `rand` version to `0.9.1`
+
 ## [0.5.0](https://github.com/TrueLayer/retry-policies/compare/v0.4.0...v0.5.0) - 2025-04-25
 
 ### Changed
@@ -32,7 +36,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.3.0] - 2024-03-04
 
 - [Breaking] Implement `RetryPolicy` for `ExponentialBackoffTimed`, which requires a modification to the `should_retry` method of
-    `RetryPolicy` in order to pass the time at which the task (original request) was started.
+  `RetryPolicy` in order to pass the time at which the task (original request) was started.
 
 ## [0.2.1] - 2023-10-09
 
