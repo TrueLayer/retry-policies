@@ -1,6 +1,9 @@
 use std::time::{Duration, SystemTime};
 
-use rand::distr::uniform::{UniformFloat, UniformSampler};
+use rand::{
+    distr::uniform::{UniformFloat, UniformSampler},
+    Rng,
+};
 
 /// A policy for deciding whether and when to retry.
 pub trait RetryPolicy {
@@ -34,17 +37,22 @@ impl Jitter {
     /// interval.
     const BOUNDED_MIN_BOUND_FRACTION: f64 = 0.5;
 
-    pub(crate) fn apply(&self, interval: Duration, min_interval: Duration) -> Duration {
+    pub(crate) fn apply(
+        &self,
+        interval: Duration,
+        min_interval: Duration,
+        rng: &mut impl Rng,
+    ) -> Duration {
         match self {
             Jitter::None => interval,
             Jitter::Full => {
-                let jitter_factor = UniformFloat::<f64>::sample_single(0.0, 1.0, &mut rand::rng())
+                let jitter_factor = UniformFloat::<f64>::sample_single(0.0, 1.0, rng)
                     .expect("Sample range should be valid");
 
                 interval.mul_f64(jitter_factor)
             }
             Jitter::Bounded => {
-                let jitter_factor = UniformFloat::<f64>::sample_single(0.0, 1.0, &mut rand::rng())
+                let jitter_factor = UniformFloat::<f64>::sample_single(0.0, 1.0, rng)
                     .expect("Sample range should be valid");
 
                 let jittered_wait_for = (interval
@@ -59,35 +67,56 @@ impl Jitter {
 
 #[cfg(test)]
 mod tests {
+    use rand::{rngs::StdRng, SeedableRng};
+
     use super::*;
     use std::time::Duration;
+
+    const SEED: u64 = 3097268606784207815;
 
     #[test]
     fn test_jitter_none() {
         let jitter = Jitter::None;
-        let interval = Duration::from_secs(10);
         let min_interval = Duration::from_secs(5);
-        assert_eq!(jitter.apply(interval, min_interval), interval);
+        let interval = Duration::from_secs(10);
+        assert_eq!(
+            jitter.apply(interval, min_interval, &mut rand::rng()),
+            interval,
+        );
     }
 
     #[test]
     fn test_jitter_full() {
         let jitter = Jitter::Full;
-        let interval = Duration::from_secs(10);
         let min_interval = Duration::from_secs(5);
-        let result = jitter.apply(interval, min_interval);
+        let interval = Duration::from_secs(10);
+        let result = jitter.apply(interval, min_interval, &mut rand::rng());
         assert!(result >= Duration::ZERO && result <= interval);
     }
 
     #[test]
     fn test_jitter_bounded() {
         let jitter = Jitter::Bounded;
-        let interval = Duration::from_secs(10);
         let min_interval = Duration::from_secs(5);
-        let result = jitter.apply(interval, min_interval);
+        let interval = Duration::from_secs(10);
+        let result = jitter.apply(interval, min_interval, &mut rand::rng());
         assert!(
             result >= min_interval.mul_f64(Jitter::BOUNDED_MIN_BOUND_FRACTION)
                 && result <= interval
         );
+    }
+
+    #[test]
+    fn test_jitter_bounded_first_retry() {
+        let jitter = Jitter::Bounded;
+        let min_interval = Duration::from_secs(1);
+        let interval = min_interval;
+        let mut rng: StdRng = SeedableRng::seed_from_u64(SEED);
+        let result = jitter.apply(interval, min_interval, &mut rng);
+        assert!(
+            result < interval,
+            "should have jittered to below the min interval"
+        );
+        assert_eq!(result, Duration::from_nanos(708_215_236));
     }
 }

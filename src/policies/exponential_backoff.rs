@@ -87,9 +87,11 @@ impl RetryPolicy for ExponentialBackoff {
                 self.min_retry_interval * calculate_exponential(self.base, n_past_retries),
             );
 
-            let jittered_wait_for = self
-                .jitter
-                .apply(unjittered_wait_for, self.min_retry_interval);
+            let jittered_wait_for = self.jitter.apply(
+                unjittered_wait_for,
+                self.min_retry_interval,
+                &mut rand::rng(),
+            );
 
             let execute_after =
                 SystemTime::now() + clip(jittered_wait_for, self.max_retry_interval);
