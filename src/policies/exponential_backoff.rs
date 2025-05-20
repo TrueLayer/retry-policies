@@ -1,5 +1,4 @@
 use crate::{Jitter, RetryDecision, RetryPolicy};
-use rand::distributions::uniform::{UniformFloat, UniformSampler};
 use std::{
     cmp::{self, min},
     time::{Duration, SystemTime},
@@ -11,7 +10,7 @@ use std::{
 pub struct ExponentialBackoff {
     /// Maximum number of allowed retries attempts.
     pub max_n_retries: Option<u32>,
-    /// Minimum waiting time between two retry attempts (it can end up being lower when using full jitter).
+    /// Minimum waiting time between two retry attempts (it can end up being lower due to jitter).
     pub min_retry_interval: Duration,
     /// Maximum waiting time between two retry attempts.
     pub max_retry_interval: Duration,
@@ -88,24 +87,11 @@ impl RetryPolicy for ExponentialBackoff {
                 self.min_retry_interval * calculate_exponential(self.base, n_past_retries),
             );
 
-            let jittered_wait_for = match self.jitter {
-                Jitter::None => unjittered_wait_for,
-                Jitter::Full => {
-                    let jitter_factor =
-                        UniformFloat::<f64>::sample_single(0.0, 1.0, &mut rand::thread_rng());
-
-                    unjittered_wait_for.mul_f64(jitter_factor)
-                }
-                Jitter::Bounded => {
-                    let jitter_factor =
-                        UniformFloat::<f64>::sample_single(0.0, 1.0, &mut rand::thread_rng());
-
-                    let jittered_wait_for =
-                        (unjittered_wait_for - self.min_retry_interval).mul_f64(jitter_factor);
-
-                    jittered_wait_for + self.min_retry_interval
-                }
-            };
+            let jittered_wait_for = self.jitter.apply(
+                unjittered_wait_for,
+                self.min_retry_interval,
+                &mut rand::rng(),
+            );
 
             let execute_after =
                 SystemTime::now() + clip(jittered_wait_for, self.max_retry_interval);
@@ -272,7 +258,7 @@ impl ExponentialBackoffBuilder {
     ///
     /// let exponential_backoff_timed = ExponentialBackoff::builder()
     ///     .retry_bounds(Duration::from_secs(1), Duration::from_secs(6 * 60 * 60))
-    ///     .build_with_total_retry_duration_and_max_retries(Duration::from_secs(24 * 60 * 60));
+    ///     .build_with_total_retry_duration_and_limit_retries(Duration::from_secs(24 * 60 * 60));
     ///
     /// assert_eq!(exponential_backoff_timed.max_retries(), Some(17));
     ///
@@ -345,8 +331,11 @@ impl ExponentialBackoffBuilder {
 }
 #[cfg(test)]
 mod tests {
+    use std::convert::TryFrom as _;
+
+    use rand::distr::{Distribution, Uniform};
+
     use super::*;
-    use rand::distributions::{Distribution, Uniform};
 
     fn get_retry_policy() -> ExponentialBackoff {
         ExponentialBackoff {
@@ -362,8 +351,9 @@ mod tests {
     fn if_n_past_retries_is_below_maximum_it_decides_to_retry() {
         // Arrange
         let policy = get_retry_policy();
-        let n_past_retries =
-            Uniform::from(0..policy.max_n_retries.unwrap()).sample(&mut rand::thread_rng());
+        let n_past_retries = Uniform::try_from(0..policy.max_n_retries.unwrap())
+            .unwrap()
+            .sample(&mut rand::rng());
         assert!(n_past_retries < policy.max_n_retries.unwrap());
 
         // Act
@@ -377,8 +367,9 @@ mod tests {
     fn if_n_past_retries_is_above_maximum_it_decides_to_mark_as_failed() {
         // Arrange
         let policy = get_retry_policy();
-        let n_past_retries =
-            Uniform::from(policy.max_n_retries.unwrap()..=u32::MAX).sample(&mut rand::thread_rng());
+        let n_past_retries = Uniform::try_from(policy.max_n_retries.unwrap()..=u32::MAX)
+            .unwrap()
+            .sample(&mut rand::rng());
         assert!(n_past_retries >= policy.max_n_retries.unwrap());
 
         // Act
