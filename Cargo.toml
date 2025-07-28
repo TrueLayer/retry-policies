@@ -10,5 +10,9 @@ keywords = ["retry", "policy", "backoff"]
 categories = ["network-programming"]
 
 [dependencies]
-rand = { version = "0.9.1", default-features = false }
+rand = "0.9.1"
 web-time = "1.1.0"
+getrandom = { version = "0.3.3", features = ["wasm_js"], optional = true }
+
+[features]
+wasm = ["rand/small_rng", "getrandom"]
