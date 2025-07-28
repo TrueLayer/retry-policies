@@ -1,4 +1,4 @@
-use std::time::{Duration, SystemTime};
+use web_time::{Duration, SystemTime};
 
 use rand::{
     distr::uniform::{UniformFloat, UniformSampler},
@@ -70,7 +70,7 @@ mod tests {
     use rand::{rngs::StdRng, SeedableRng};
 
     use super::*;
-    use std::time::Duration;
+    use web_time::Duration;
 
     const SEED: u64 = 3097268606784207815;
 

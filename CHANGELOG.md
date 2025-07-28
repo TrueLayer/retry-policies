@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Improved bounded jitter to use 50% of `min_retry_interval` instead of 100%.
 
+### Added
+
+- compatibility with `wasm32-unknown-unknown`
+
 ## [0.5.0](https://github.com/TrueLayer/retry-policies/compare/v0.4.0...v0.5.0) - 2025-05-14
 
 ### Changed

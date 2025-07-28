@@ -1,8 +1,6 @@
 use crate::{Jitter, RetryDecision, RetryPolicy};
-use std::{
-    cmp::{self, min},
-    time::{Duration, SystemTime},
-};
+use std::cmp::{self, min};
+use web_time::{Duration, SystemTime};
 
 /// Exponential backoff with optional jitter.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -36,7 +34,7 @@ pub struct ExponentialBackoffTimed {
 /// ```rust
 /// use retry_policies::{RetryDecision, RetryPolicy, Jitter};
 /// use retry_policies::policies::ExponentialBackoff;
-/// use std::time::Duration;
+/// use web_time::Duration;
 ///
 /// let backoff = ExponentialBackoff::builder()
 ///     .retry_bounds(Duration::from_secs(1), Duration::from_secs(60))
@@ -57,7 +55,7 @@ impl ExponentialBackoff {
     /// # Example
     /// ```
     /// use retry_policies::policies::ExponentialBackoff;
-    /// use std::time::Duration;
+    /// use web_time::Duration;
     ///
     /// let backoff = ExponentialBackoff::builder()
     ///     .build_with_max_retries(5);
@@ -202,7 +200,7 @@ impl ExponentialBackoffBuilder {
     /// ```rust
     /// use retry_policies::{RetryDecision, RetryPolicy};
     /// use retry_policies::policies::ExponentialBackoff;
-    /// use std::time::{Duration, SystemTime};
+    /// use web_time::{Duration, SystemTime};
     ///
     /// let backoff = ExponentialBackoff::builder()
     ///     .build_with_total_retry_duration(Duration::from_secs(24 * 60 * 60));
@@ -254,7 +252,7 @@ impl ExponentialBackoffBuilder {
     /// ```rust
     /// use retry_policies::{RetryDecision, RetryPolicy};
     /// use retry_policies::policies::ExponentialBackoff;
-    /// use std::time::{Duration, SystemTime};
+    /// use web_time::{Duration, SystemTime};
     ///
     /// let exponential_backoff_timed = ExponentialBackoff::builder()
     ///     .retry_bounds(Duration::from_secs(1), Duration::from_secs(6 * 60 * 60))
