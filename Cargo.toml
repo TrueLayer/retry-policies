@@ -10,4 +10,5 @@ keywords = ["retry", "policy", "backoff"]
 categories = ["network-programming"]
 
 [dependencies]
-rand = "0.9.1"
+rand = { version = "0.9.1", default-features = false }
+web-time = "1.1.0"
