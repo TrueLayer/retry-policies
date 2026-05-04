@@ -1,4 +1,5 @@
 use std::time::{Duration, SystemTime};
+use std::collections::HashMap;
 
 use rand::{
     distr::uniform::{UniformFloat, UniformSampler},
@@ -8,7 +9,7 @@ use rand::{
 /// A policy for deciding whether and when to retry.
 pub trait RetryPolicy {
     /// Determine if a task should be retried according to a retry policy.
-    fn should_retry(&self, request_start_time: SystemTime, n_past_retries: u32) -> RetryDecision;
+    fn should_retry(&self, request_start_time: SystemTime, n_past_retries: u32, extras: Option<HashMap<String, String>>) -> RetryDecision;
 }
 
 /// Outcome of evaluating a retry policy for a failed task.
