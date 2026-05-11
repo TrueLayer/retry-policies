@@ -1,7 +1,6 @@
 use crate::{Jitter, RetryDecision, RetryPolicy};
 use std::{
-    cmp::{self, min},
-    time::{Duration, SystemTime},
+    cmp::{self, min}, collections::HashMap, time::{Duration, SystemTime}
 };
 
 /// Exponential backoff with optional jitter.
@@ -78,7 +77,7 @@ impl ExponentialBackoff {
 }
 
 impl RetryPolicy for ExponentialBackoff {
-    fn should_retry(&self, _request_start_time: SystemTime, n_past_retries: u32) -> RetryDecision {
+    fn should_retry(&self, _request_start_time: SystemTime, n_past_retries: u32, _extras: Option<HashMap<String, String>>) -> RetryDecision {
         if self.too_many_attempts(n_past_retries) {
             RetryDecision::DoNotRetry
         } else {
@@ -140,12 +139,12 @@ impl Default for ExponentialBackoffBuilder {
 }
 
 impl RetryPolicy for ExponentialBackoffTimed {
-    fn should_retry(&self, request_start_time: SystemTime, n_past_retries: u32) -> RetryDecision {
+    fn should_retry(&self, request_start_time: SystemTime, n_past_retries: u32, _extras: Option<HashMap<String, String>>) -> RetryDecision {
         if self.trying_for_too_long(request_start_time) {
             return RetryDecision::DoNotRetry;
         }
         self.backoff
-            .should_retry(request_start_time, n_past_retries)
+            .should_retry(request_start_time, n_past_retries, _extras)
     }
 }
 
@@ -357,7 +356,7 @@ mod tests {
         assert!(n_past_retries < policy.max_n_retries.unwrap());
 
         // Act
-        let decision = policy.should_retry(SystemTime::now(), n_past_retries);
+        let decision = policy.should_retry(SystemTime::now(), n_past_retries, None);
 
         // Assert
         matches!(decision, RetryDecision::Retry { .. });
@@ -373,7 +372,7 @@ mod tests {
         assert!(n_past_retries >= policy.max_n_retries.unwrap());
 
         // Act
-        let decision = policy.should_retry(SystemTime::now(), n_past_retries);
+        let decision = policy.should_retry(SystemTime::now(), n_past_retries, None);
 
         // Assert
         matches!(decision, RetryDecision::DoNotRetry);
@@ -386,7 +385,7 @@ mod tests {
         let max_interval = policy.max_retry_interval;
 
         // Act
-        let decision = policy.should_retry(SystemTime::now(), policy.max_n_retries.unwrap() - 1);
+        let decision = policy.should_retry(SystemTime::now(), policy.max_n_retries.unwrap() - 1, None);
 
         // Assert
         match decision {
@@ -407,7 +406,7 @@ mod tests {
         let n_failed_attempts = u32::MAX - 1;
 
         // Act
-        let decision = policy.should_retry(SystemTime::now(), n_failed_attempts);
+        let decision = policy.should_retry(SystemTime::now(), n_failed_attempts, None);
 
         // Assert
         match decision {
@@ -435,7 +434,7 @@ mod tests {
                 .checked_sub(Duration::from_secs(23 * 60 * 60))
                 .unwrap();
 
-            let decision = backoff.should_retry(started_at, 0);
+            let decision = backoff.should_retry(started_at, 0, None);
 
             match decision {
                 RetryDecision::Retry { .. } => {}
@@ -447,7 +446,7 @@ mod tests {
                 .checked_sub(Duration::from_secs(25 * 60 * 60))
                 .unwrap();
 
-            let decision = backoff.should_retry(started_at, 0);
+            let decision = backoff.should_retry(started_at, 0, None);
 
             match decision {
                 RetryDecision::DoNotRetry => {}
@@ -468,7 +467,7 @@ mod tests {
                 .checked_sub(Duration::from_secs(23 * 60 * 60))
                 .unwrap();
 
-            let decision = backoff.should_retry(started_at, 0);
+            let decision = backoff.should_retry(started_at, 0, None);
 
             match decision {
                 RetryDecision::Retry { .. } => {}
@@ -481,7 +480,7 @@ mod tests {
                 .unwrap();
 
             // Zero based, so this is the 18th retry
-            let decision = backoff.should_retry(started_at, 17);
+            let decision = backoff.should_retry(started_at, 17, None);
 
             match decision {
                 RetryDecision::DoNotRetry => {}
@@ -493,7 +492,7 @@ mod tests {
                 .checked_sub(Duration::from_secs(25 * 60 * 60))
                 .unwrap();
 
-            let decision = backoff.should_retry(started_at, 0);
+            let decision = backoff.should_retry(started_at, 0, None);
 
             match decision {
                 RetryDecision::DoNotRetry => {}
@@ -540,7 +539,7 @@ mod tests {
                 .checked_sub(Duration::from_secs(60))
                 .unwrap();
 
-            let decision = backoff.should_retry(started_at, 3);
+            let decision = backoff.should_retry(started_at, 3, None);
 
             match decision {
                 RetryDecision::Retry { .. } => {}
@@ -554,7 +553,7 @@ mod tests {
                 .checked_sub(Duration::from_secs(60))
                 .unwrap();
 
-            let decision = backoff.should_retry(started_at, 5);
+            let decision = backoff.should_retry(started_at, 5, None);
 
             match decision {
                 RetryDecision::DoNotRetry => {}
@@ -568,7 +567,7 @@ mod tests {
                 .checked_sub(Duration::from_secs(150))
                 .unwrap();
 
-            let decision = backoff.should_retry(started_at, 3);
+            let decision = backoff.should_retry(started_at, 3, None);
 
             match decision {
                 RetryDecision::DoNotRetry => {}
